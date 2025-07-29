@@ -1,70 +1,84 @@
-# Getting Started with Create React App
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+Personal Expense Tracker - Complete Setup Guide
+A user-friendly web application to track your personal finances, create budgets, and set savings goals. 
 
-## Available Scripts
+**What This App Does**
+Track Money: Record your income and expenses
+Create Budgets: Set spending limits for different categories (food, rent, etc.)
+Set Goals: Save money for specific things (vacation, emergency fund, etc.)
+See Reports: Visual charts showing where your money goes
+Stay Organized: Everything is saved safely and organized for you
 
-In the project directory, you can run:
+**Before starting, you need these programs on your computer:**
+Node.js (This runs the app)
+What it is: A program that lets you run JavaScript applications
+Download: Go to nodejs.org
+Which version: Download the LTS version (the green button)
 
-### `npm start`
+**. Git (This downloads the code)**
+A tool to download code from the internet
+Download: Go to git-scm.com
+Installation: Download and install with default settings
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+**Starting the App**
+Open two command prompts
+In first: cd Desktop/expensetracker/backend then npm run dev
+In second: cd Desktop/expensetracker/frontend then npm start
+Wait for browser to open
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+**Stopping the App**
+In both command prompts: Press Ctrl+C
+Close the browser tabs
+Your data is automatically saved
 
-### `npm test`
+**Test the App**
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+_Create Your Account_
+Click "Sign Up" on the website
+Fill in your details:
 
-### `npm run build`
+Full Name: Your name
+Email: Your email
+Username: Pick any username
+Password: At least 6 characters
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+Click "Create Account"
+You should see "Registration Complete"
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+_Login_
+Click "Login"
+Enter your username and password
+Click "Login"
+You should see your personal dashboard
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+**Using the App**
+_Dashboard_
+Green numbers: Good (income, savings)
+Red numbers: Spending (expenses)
+Charts: Visual representation of your money
 
-### `npm run eject`
+_Adding Transactions_
+Income: Money you receive (salary, gifts, etc.)
+Expense: Money you spend (food, rent, etc.)
+Categories: Organize your spending
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+_Budgets_
+Set limits for how much you want to spend per category
+Green progress bar: You're within budget
+Red progress bar: You're over budget
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+_Goals_
+Set saving targets for specific things
+Add money to goals as you save
+Track progress toward your targets
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+_Your Data_
+All data is stored locally on your computer
+Nothing is sent to the internet (except to GitHub if you uploaded it)
+Database file: backend/database.sqlite contains all your information
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+**In the example are screenshots of what you should see**
 
-## Learn More
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
 
-To learn React, check out the [React documentation](https://reactjs.org/).
-
-### Code Splitting
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
-
-### Analyzing the Bundle Size
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
-
-### Making a Progressive Web App
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
-
-### Advanced Configuration
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
-
-### Deployment
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
-
-### `npm run build` fails to minify
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+****
