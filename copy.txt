@@ -1,0 +1,874 @@
+import React, { useState, useEffect } from 'react';
+import { PlusCircle, TrendingUp, TrendingDown, Target, Calendar, DollarSign, PieChart, BarChart3, User, LogOut, Eye, EyeOff, Mail, Lock, UserPlus } from 'lucide-react';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart as RechartsPieChart, Cell, BarChart, Bar, Pie } from 'recharts';
+
+const ExpenseTrackerApp = () => {
+  // Authentication state
+  const [currentUser, setCurrentUser] = useState(null);
+  const [currentPage, setCurrentPage] = useState('landing');
+  
+  // Simulated Databases
+  const [userDB, setUserDB] = useState([
+    { id: 1, fullName: 'John Doe', email: 'john@example.com', username: 'johndoe', password: 'password123' },
+    { id: 2, fullName: 'Jane Smith', email: 'jane@example.com', username: 'janesmith', password: 'password456' }
+  ]);
+  
+  const [expenseDB, setExpenseDB] = useState({
+    1: {
+      transactions: [
+        { id: 1, type: 'income', amount: 3500, category: 'Salary', description: 'Monthly salary', date: '2025-07-01' },
+        { id: 2, type: 'expense', amount: 1200, category: 'Housing', description: 'Rent payment', date: '2025-07-02' },
+        { id: 3, type: 'expense', amount: 80, category: 'Food', description: 'Groceries', date: '2025-07-03' }
+      ],
+      budgets: [
+        { category: 'Food', limit: 300, spent: 80 },
+        { category: 'Transportation', limit: 200, spent: 50 },
+        { category: 'Entertainment', limit: 150, spent: 60 },
+        { category: 'Utilities', limit: 150, spent: 120 },
+        { category: 'Housing', limit: 1300, spent: 1200 }
+      ],
+      goals: [
+        { id: 1, name: 'Emergency Fund', target: 10000, current: 3500, deadline: '2025-12-31' },
+        { id: 2, name: 'Vacation', target: 2000, current: 800, deadline: '2025-09-15' }
+      ]
+    },
+    2: {
+      transactions: [],
+      budgets: [],
+      goals: []
+    }
+  });
+
+  // Login/Register forms state
+  const [loginForm, setLoginForm] = useState({ usernameOrEmail: '', password: '' });
+  const [registerForm, setRegisterForm] = useState({ fullName: '', email: '', username: '', password: '' });
+  const [showPassword, setShowPassword] = useState(false);
+  const [errors, setErrors] = useState({});
+  const [authMessage, setAuthMessage] = useState('');
+
+  // Expense tracker state
+  const [activeTab, setActiveTab] = useState('dashboard');
+  const [newTransaction, setNewTransaction] = useState({
+    type: 'expense',
+    amount: '',
+    category: '',
+    description: '',
+    date: new Date().toISOString().split('T')[0]
+  });
+
+  const categories = ['Food', 'Housing', 'Transportation', 'Entertainment', 'Utilities', 'Healthcare', 'Shopping', 'Salary', 'Freelance', 'Investment'];
+
+  // Authentication functions
+  const validateEmail = (email) => {
+    const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return re.test(email);
+  };
+
+  const validateRegisterForm = () => {
+    const newErrors = {};
+    
+    if (!registerForm.fullName.trim()) newErrors.fullName = 'Full name is required';
+    if (!registerForm.email.trim()) newErrors.email = 'Email is required';
+    else if (!validateEmail(registerForm.email)) newErrors.email = 'Invalid email format';
+    if (!registerForm.username.trim()) newErrors.username = 'Username is required';
+    else if (registerForm.username.length < 3) newErrors.username = 'Username must be at least 3 characters';
+    if (!registerForm.password) newErrors.password = 'Password is required';
+    else if (registerForm.password.length < 6) newErrors.password = 'Password must be at least 6 characters';
+
+    // Check for duplicate username/email
+    const existingUser = userDB.find(user => 
+      user.username === registerForm.username || user.email === registerForm.email
+    );
+    if (existingUser) {
+      if (existingUser.username === registerForm.username) newErrors.username = 'Username already exists';
+      if (existingUser.email === registerForm.email) newErrors.email = 'Email already exists';
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleRegister = () => {
+    if (!validateRegisterForm()) return;
+
+    const newUser = {
+      id: userDB.length + 1,
+      fullName: registerForm.fullName,
+      email: registerForm.email,
+      username: registerForm.username,
+      password: registerForm.password
+    };
+
+    setUserDB([...userDB, newUser]);
+    setExpenseDB({
+      ...expenseDB,
+      [newUser.id]: { transactions: [], budgets: [], goals: [] }
+    });
+
+    setAuthMessage('Registration Complete');
+    setCurrentPage('login');
+    setRegisterForm({ fullName: '', email: '', username: '', password: '' });
+    setErrors({});
+  };
+
+  const handleLogin = () => {
+    const user = userDB.find(u => 
+      (u.username === loginForm.usernameOrEmail || u.email === loginForm.usernameOrEmail) && 
+      u.password === loginForm.password
+    );
+
+    if (user) {
+      setCurrentUser(user);
+      setCurrentPage('expense-tracker');
+      setAuthMessage(`Welcome back, ${user.fullName}!`);
+      setLoginForm({ usernameOrEmail: '', password: '' });
+      setTimeout(() => setAuthMessage(''), 3000);
+    } else {
+      setAuthMessage('Invalid username/email or password');
+      setTimeout(() => setAuthMessage(''), 3000);
+    }
+  };
+
+  const handleLogout = () => {
+    setCurrentUser(null);
+    setCurrentPage('landing');
+    setActiveTab('dashboard');
+    setAuthMessage('');
+  };
+
+  // Expense tracker functions
+  const getUserData = () => {
+    return currentUser ? expenseDB[currentUser.id] : { transactions: [], budgets: [], goals: [] };
+  };
+
+  const updateUserData = (newData) => {
+    if (currentUser) {
+      setExpenseDB({
+        ...expenseDB,
+        [currentUser.id]: newData
+      });
+    }
+  };
+
+  const addTransaction = () => {
+    if (!newTransaction.amount || !newTransaction.category) return;
+
+    const userData = getUserData();
+    const transaction = {
+      id: Date.now(),
+      ...newTransaction,
+      amount: parseFloat(newTransaction.amount)
+    };
+
+    const newTransactions = [...userData.transactions, transaction];
+    
+    // Update budget if it's an expense
+    let newBudgets = userData.budgets;
+    if (transaction.type === 'expense') {
+      newBudgets = userData.budgets.map(budget => 
+        budget.category === transaction.category 
+          ? { ...budget, spent: budget.spent + transaction.amount }
+          : budget
+      );
+    }
+
+    updateUserData({
+      ...userData,
+      transactions: newTransactions,
+      budgets: newBudgets
+    });
+
+    setNewTransaction({
+      type: 'expense',
+      amount: '',
+      category: '',
+      description: '',
+      date: new Date().toISOString().split('T')[0]
+    });
+  };
+
+  // Landing Page Component
+  const LandingPage = () => (
+    <div className="min-h-screen bg-gradient-to-br from-blue-600 to-purple-700 flex items-center justify-center p-6">
+      <div className="max-w-4xl mx-auto text-center">
+        <div className="bg-white rounded-2xl shadow-2xl p-8 md:p-12">
+          <div className="mb-8">
+            <DollarSign className="mx-auto mb-4 text-blue-600" size={64} />
+            <h1 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
+              Personal Expense Tracker
+            </h1>
+            <p className="text-xl text-gray-600 mb-8">
+              Take control of your finances. Track expenses, set budgets, and achieve your financial goals.
+            </p>
+          </div>
+          
+          <div className="grid md:grid-cols-3 gap-6 mb-8">
+            <div className="text-center p-4">
+              <BarChart3 className="mx-auto mb-3 text-blue-600" size={32} />
+              <h3 className="font-semibold mb-2">Track Expenses</h3>
+              <p className="text-gray-600 text-sm">Monitor your spending across different categories</p>
+            </div>
+            <div className="text-center p-4">
+              <Target className="mx-auto mb-3 text-green-600" size={32} />
+              <h3 className="font-semibold mb-2">Set Goals</h3>
+              <p className="text-gray-600 text-sm">Create and track your savings goals</p>
+            </div>
+            <div className="text-center p-4">
+              <TrendingUp className="mx-auto mb-3 text-purple-600" size={32} />
+              <h3 className="font-semibold mb-2">Analyze Trends</h3>
+              <p className="text-gray-600 text-sm">Get insights into your spending patterns</p>
+            </div>
+          </div>
+
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <button
+              onClick={() => setCurrentPage('login')}
+              className="px-8 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-semibold flex items-center justify-center space-x-2"
+            >
+              <Lock size={20} />
+              <span>Login</span>
+            </button>
+            <button
+              onClick={() => setCurrentPage('register')}
+              className="px-8 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-semibold flex items-center justify-center space-x-2"
+            >
+              <UserPlus size={20} />
+              <span>Sign Up</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  // Register Page Component
+  const RegisterPage = () => (
+    <div className="min-h-screen bg-gradient-to-br from-green-600 to-blue-700 flex items-center justify-center p-6">
+      <div className="max-w-md w-full bg-white rounded-2xl shadow-2xl p-8">
+        <div className="text-center mb-8">
+          <UserPlus className="mx-auto mb-4 text-green-600" size={48} />
+          <h2 className="text-3xl font-bold text-gray-900">Create Account</h2>
+          <p className="text-gray-600 mt-2">Join us to start tracking your expenses</p>
+        </div>
+
+        {authMessage && (
+          <div className="mb-4 p-3 bg-green-100 border border-green-400 text-green-700 rounded-lg text-center">
+            {authMessage}
+          </div>
+        )}
+
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
+            <input
+              type="text"
+              value={registerForm.fullName}
+              onChange={(e) => setRegisterForm({...registerForm, fullName: e.target.value})}
+              className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent ${errors.fullName ? 'border-red-500' : 'border-gray-300'}`}
+              placeholder="Enter your full name"
+            />
+            {errors.fullName && <p className="text-red-500 text-sm mt-1">{errors.fullName}</p>}
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+            <input
+              type="email"
+              value={registerForm.email}
+              onChange={(e) => setRegisterForm({...registerForm, email: e.target.value})}
+              className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent ${errors.email ? 'border-red-500' : 'border-gray-300'}`}
+              placeholder="Enter your email"
+            />
+            {errors.email && <p className="text-red-500 text-sm mt-1">{errors.email}</p>}
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Username</label>
+            <input
+              type="text"
+              value={registerForm.username}
+              onChange={(e) => setRegisterForm({...registerForm, username: e.target.value})}
+              className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent ${errors.username ? 'border-red-500' : 'border-gray-300'}`}
+              placeholder="Choose a username"
+            />
+            {errors.username && <p className="text-red-500 text-sm mt-1">{errors.username}</p>}
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
+            <div className="relative">
+              <input
+                type={showPassword ? "text" : "password"}
+                value={registerForm.password}
+                onChange={(e) => setRegisterForm({...registerForm, password: e.target.value})}
+                className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent pr-10 ${errors.password ? 'border-red-500' : 'border-gray-300'}`}
+                placeholder="Create a password"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-3 text-gray-400 hover:text-gray-600"
+              >
+                {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+              </button>
+            </div>
+            {errors.password && <p className="text-red-500 text-sm mt-1">{errors.password}</p>}
+          </div>
+
+          <button
+            onClick={handleRegister}
+            className="w-full bg-green-600 text-white py-3 px-4 rounded-lg hover:bg-green-700 transition-colors font-semibold"
+          >
+            Create Account
+          </button>
+
+          <div className="text-center">
+            <button
+              onClick={() => setCurrentPage('login')}
+              className="text-green-600 hover:text-green-700 font-medium"
+            >
+              Already have an account? Login
+            </button>
+          </div>
+
+          <div className="text-center">
+            <button
+              onClick={() => setCurrentPage('landing')}
+              className="text-gray-500 hover:text-gray-700"
+            >
+              ← Back to Home
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  // Login Page Component
+  const LoginPage = () => (
+    <div className="min-h-screen bg-gradient-to-br from-blue-600 to-purple-700 flex items-center justify-center p-6">
+      <div className="max-w-md w-full bg-white rounded-2xl shadow-2xl p-8">
+        <div className="text-center mb-8">
+          <Lock className="mx-auto mb-4 text-blue-600" size={48} />
+          <h2 className="text-3xl font-bold text-gray-900">Welcome Back</h2>
+          <p className="text-gray-600 mt-2">Sign in to your account</p>
+        </div>
+
+        {authMessage && (
+          <div className={`mb-4 p-3 border rounded-lg text-center ${
+            authMessage.includes('Invalid') 
+              ? 'bg-red-100 border-red-400 text-red-700' 
+              : 'bg-green-100 border-green-400 text-green-700'
+          }`}>
+            {authMessage}
+          </div>
+        )}
+
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Username or Email</label>
+            <input
+              type="text"
+              value={loginForm.usernameOrEmail}
+              onChange={(e) => setLoginForm({...loginForm, usernameOrEmail: e.target.value})}
+              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              placeholder="Enter username or email"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
+            <div className="relative">
+              <input
+                type={showPassword ? "text" : "password"}
+                value={loginForm.password}
+                onChange={(e) => setLoginForm({...loginForm, password: e.target.value})}
+                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent pr-10"
+                placeholder="Enter password"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-3 text-gray-400 hover:text-gray-600"
+              >
+                {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+              </button>
+            </div>
+          </div>
+
+          <button
+            onClick={handleLogin}
+            className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg hover:bg-blue-700 transition-colors font-semibold"
+          >
+            Login
+          </button>
+
+          <div className="text-center">
+            <button
+              onClick={() => setCurrentPage('register')}
+              className="text-blue-600 hover:text-blue-700 font-medium"
+            >
+              Don't have an account? Sign up
+            </button>
+          </div>
+
+          <div className="text-center">
+            <button
+              onClick={() => setCurrentPage('landing')}
+              className="text-gray-500 hover:text-gray-700"
+            >
+              ← Back to Home
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  // Expense Tracker Component (User-specific)
+  const ExpenseTracker = () => {
+    const userData = getUserData();
+    const { transactions, budgets, goals } = userData;
+
+    // Calculate totals
+    const totalIncome = transactions.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
+    const totalExpenses = transactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0);
+    const netAmount = totalIncome - totalExpenses;
+
+    // Chart data
+    const monthlyData = [
+      { month: 'Jan', income: 3200, expenses: 2800 },
+      { month: 'Feb', income: 3400, expenses: 2900 },
+      { month: 'Mar', income: 3600, expenses: 3100 },
+      { month: 'Apr', income: 3500, expenses: 2700 },
+      { month: 'May', income: 3700, expenses: 3200 },
+      { month: 'Jun', income: 3500, expenses: 2950 },
+      { month: 'Jul', income: totalIncome, expenses: totalExpenses },
+    ];
+
+    const expensesByCategory = budgets.map(budget => ({
+      name: budget.category,
+      value: budget.spent
+    }));
+
+    const COLORS = ['#8884d8', '#82ca9d', '#ffc658', '#ff7300', '#0088fe', '#00c49f'];
+
+    const TabButton = ({ tab, label, icon: Icon }) => (
+      <button
+        onClick={() => setActiveTab(tab)}
+        className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors ${
+          activeTab === tab 
+            ? 'bg-blue-600 text-white' 
+            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+        }`}
+      >
+        <Icon size={20} />
+        <span>{label}</span>
+      </button>
+    );
+
+    return (
+      <div className="min-h-screen bg-gray-50 p-6">
+        <div className="max-w-7xl mx-auto">
+          {/* Header */}
+          <div className="flex justify-between items-center mb-8">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900 mb-2">
+                Welcome, {currentUser.fullName}!
+              </h1>
+              <p className="text-gray-600">Track your income, expenses, and achieve your financial goals</p>
+            </div>
+            <button
+              onClick={handleLogout}
+              className="flex items-center space-x-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+            >
+              <LogOut size={20} />
+              <span>Logout</span>
+            </button>
+          </div>
+
+          {authMessage && (
+            <div className="mb-6 p-4 bg-green-100 border border-green-400 text-green-700 rounded-lg">
+              {authMessage}
+            </div>
+          )}
+
+          {/* Navigation */}
+          <div className="flex space-x-4 mb-8 overflow-x-auto">
+            <TabButton tab="dashboard" label="Dashboard" icon={BarChart3} />
+            <TabButton tab="transactions" label="Transactions" icon={DollarSign} />
+            <TabButton tab="budgets" label="Budgets" icon={PieChart} />
+            <TabButton tab="goals" label="Goals" icon={Target} />
+            <TabButton tab="summary" label="Monthly Summary" icon={Calendar} />
+          </div>
+
+          {/* Dashboard Tab */}
+          {activeTab === 'dashboard' && (
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* Quick Stats */}
+              <div className="lg:col-span-3 grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                <div className="bg-white p-6 rounded-xl shadow-sm border">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-gray-600">Total Income</p>
+                      <p className="text-2xl font-bold text-green-600">${totalIncome.toLocaleString()}</p>
+                    </div>
+                    <TrendingUp className="text-green-600" size={32} />
+                  </div>
+                </div>
+                <div className="bg-white p-6 rounded-xl shadow-sm border">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-gray-600">Total Expenses</p>
+                      <p className="text-2xl font-bold text-red-600">${totalExpenses.toLocaleString()}</p>
+                    </div>
+                    <TrendingDown className="text-red-600" size={32} />
+                  </div>
+                </div>
+                <div className="bg-white p-6 rounded-xl shadow-sm border">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-gray-600">Net Amount</p>
+                      <p className={`text-2xl font-bold ${netAmount >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                        ${netAmount.toLocaleString()}
+                      </p>
+                    </div>
+                    <DollarSign className={netAmount >= 0 ? 'text-green-600' : 'text-red-600'} size={32} />
+                  </div>
+                </div>
+              </div>
+
+              {/* Monthly Trend Chart */}
+              <div className="lg:col-span-2 bg-white p-6 rounded-xl shadow-sm border">
+                <h3 className="text-lg font-semibold mb-4">Monthly Trend</h3>
+                <ResponsiveContainer width="100%" height={300}>
+                  <LineChart data={monthlyData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="month" />
+                    <YAxis />
+                    <Tooltip formatter={(value) => [`$${value}`, '']} />
+                    <Line type="monotone" dataKey="income" stroke="#10b981" strokeWidth={2} name="Income" />
+                    <Line type="monotone" dataKey="expenses" stroke="#ef4444" strokeWidth={2} name="Expenses" />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+
+              {/* Recent Transactions */}
+              <div className="bg-white p-6 rounded-xl shadow-sm border">
+                <h3 className="text-lg font-semibold mb-4">Recent Transactions</h3>
+                <div className="space-y-3">
+                  {transactions.length === 0 ? (
+                    <p className="text-gray-500 text-center py-4">No transactions yet. Add your first transaction!</p>
+                  ) : (
+                    transactions.slice(-5).reverse().map(transaction => (
+                      <div key={transaction.id} className="flex justify-between items-center py-2 border-b border-gray-100 last:border-b-0">
+                        <div>
+                          <p className="font-medium">{transaction.description}</p>
+                          <p className="text-sm text-gray-600">{transaction.category}</p>
+                        </div>
+                        <span className={`font-semibold ${transaction.type === 'income' ? 'text-green-600' : 'text-red-600'}`}>
+                          {transaction.type === 'income' ? '+' : '-'}${transaction.amount}
+                        </span>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Transactions Tab */}
+          {activeTab === 'transactions' && (
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* Add Transaction Form */}
+              <div className="bg-white p-6 rounded-xl shadow-sm border">
+                <h3 className="text-lg font-semibold mb-4">Add Transaction</h3>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Type</label>
+                    <select
+                      value={newTransaction.type}
+                      onChange={(e) => setNewTransaction({...newTransaction, type: e.target.value})}
+                      className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    >
+                      <option value="expense">Expense</option>
+                      <option value="income">Income</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Amount</label>
+                    <input
+                      type="number"
+                      value={newTransaction.amount}
+                      onChange={(e) => setNewTransaction({...newTransaction, amount: e.target.value})}
+                      className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="0.00"
+                      step="0.01"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
+                    <select
+                      value={newTransaction.category}
+                      onChange={(e) => setNewTransaction({...newTransaction, category: e.target.value})}
+                      className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    >
+                      <option value="">Select category</option>
+                      {categories.map(cat => (
+                        <option key={cat} value={cat}>{cat}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                    <input
+                      type="text"
+                      value={newTransaction.description}
+                      onChange={(e) => setNewTransaction({...newTransaction, description: e.target.value})}
+                      className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="Transaction description"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
+                    <input
+                      type="date"
+                      value={newTransaction.date}
+                      onChange={(e) => setNewTransaction({...newTransaction, date: e.target.value})}
+                      className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                  </div>
+                  <button
+                    onClick={addTransaction}
+                    className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center space-x-2"
+                  >
+                    <PlusCircle size={20} />
+                    <span>Add Transaction</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Transaction List */}
+              <div className="lg:col-span-2 bg-white p-6 rounded-xl shadow-sm border">
+                <h3 className="text-lg font-semibold mb-4">All Transactions</h3>
+                <div className="space-y-3 max-h-96 overflow-y-auto">
+                  {transactions.length === 0 ? (
+                    <p className="text-gray-500 text-center py-8">No transactions yet. Add your first transaction to get started!</p>
+                  ) : (
+                    transactions.map(transaction => (
+                      <div key={transaction.id} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                        <div>
+                          <p className="font-medium">{transaction.description}</p>
+                          <p className="text-sm text-gray-600">{transaction.category} • {transaction.date}</p>
+                        </div>
+                        <span className={`font-semibold text-lg ${transaction.type === 'income' ? 'text-green-600' : 'text-red-600'}`}>
+                          {transaction.type === 'income' ? '+' : '-'}${transaction.amount}
+                        </span>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Budgets Tab */}
+          {activeTab === 'budgets' && (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Budget Overview */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold">Budget Overview</h3>
+                {budgets.length === 0 ? (
+                  <div className="bg-white p-6 rounded-lg shadow-sm border text-center">
+                    <p className="text-gray-500">No budgets set yet. Add some transactions to start tracking budgets!</p>
+                  </div>
+                ) : (
+                  budgets.map(budget => {
+                    const percentage = (budget.spent / budget.limit) * 100;
+                    const isOverBudget = percentage > 100;
+                    
+                    return (
+                      <div key={budget.category} className="bg-white p-4 rounded-lg shadow-sm border">
+                        <div className="flex justify-between items-center mb-2">
+                          <h4 className="font-medium">{budget.category}</h4>
+                          <span className={`text-sm ${isOverBudget ? 'text-red-600' : 'text-gray-600'}`}>
+                            ${budget.spent} / ${budget.limit}
+                          </span>
+                        </div>
+                        <div className="w-full bg-gray-200 rounded-full h-2">
+                          <div
+                            className={`h-2 rounded-full ${isOverBudget ? 'bg-red-500' : 'bg-blue-500'}`}
+                            style={{ width: `${Math.min(percentage, 100)}%` }}
+                          ></div>
+                        </div>
+                        <p className={`text-sm mt-1 ${isOverBudget ? 'text-red-600' : 'text-gray-600'}`}>
+                          {percentage.toFixed(1)}% used
+                          {isOverBudget && ` (${((budget.spent - budget.limit)).toFixed(0)} over budget)`}
+                        </p>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+
+              {/* Spending Breakdown Chart */}
+              <div className="bg-white p-6 rounded-xl shadow-sm border">
+                <h3 className="text-lg font-semibold mb-4">Spending Breakdown</h3>
+                {expensesByCategory.length === 0 ? (
+                  <div className="flex items-center justify-center h-64 text-gray-500">
+                    <p>No expense data to display</p>
+                  </div>
+                ) : (
+                  <ResponsiveContainer width="100%" height={300}>
+                    <RechartsPieChart>
+                      <Pie
+                        data={expensesByCategory}
+                        cx="50%"
+                        cy="50%"
+                        labelLine={false}
+                        label={({name, percent}) => `${name} ${(percent * 100).toFixed(0)}%`}
+                        outerRadius={80}
+                        fill="#8884d8"
+                        dataKey="value"
+                      >
+                        {expensesByCategory.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip formatter={(value) => [`$${value}`, 'Amount']} />
+                    </RechartsPieChart>
+                  </ResponsiveContainer>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Goals Tab */}
+          {activeTab === 'goals' && (
+            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+              {goals.length === 0 ? (
+                <div className="lg:col-span-3 bg-white p-8 rounded-xl shadow-sm border text-center">
+                  <Target className="mx-auto mb-4 text-gray-400" size={48} />
+                  <h3 className="text-lg font-semibold text-gray-600 mb-2">No Goals Set Yet</h3>
+                  <p className="text-gray-500">Start by adding some transactions and setting your first financial goal!</p>
+                </div>
+              ) : (
+                goals.map(goal => {
+                  const percentage = (goal.current / goal.target) * 100;
+                  const remaining = goal.target - goal.current;
+                  const daysLeft = Math.ceil((new Date(goal.deadline) - new Date()) / (1000 * 60 * 60 * 24));
+                  
+                  return (
+                    <div key={goal.id} className="bg-white p-6 rounded-xl shadow-sm border">
+                      <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-lg font-semibold">{goal.name}</h3>
+                        <Target className="text-blue-600" size={24} />
+                      </div>
+                      
+                      <div className="mb-4">
+                        <div className="flex justify-between text-sm text-gray-600 mb-1">
+                          <span>${goal.current.toLocaleString()}</span>
+                          <span>${goal.target.toLocaleString()}</span>
+                        </div>
+                        <div className="w-full bg-gray-200 rounded-full h-3">
+                          <div
+                            className="bg-blue-500 h-3 rounded-full"
+                            style={{ width: `${Math.min(percentage, 100)}%` }}
+                          ></div>
+                        </div>
+                        <p className="text-sm text-gray-600 mt-1">{percentage.toFixed(1)}% complete</p>
+                      </div>
+                      
+                      <div className="space-y-2 text-sm">
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Remaining:</span>
+                          <span className="font-medium">${remaining.toLocaleString()}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Deadline:</span>
+                          <span className="font-medium">{goal.deadline}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Days left:</span>
+                          <span className={`font-medium ${daysLeft < 30 ? 'text-red-600' : 'text-gray-900'}`}>
+                            {daysLeft} days
+                          </span>
+                        </div>
+                        {daysLeft > 0 && (
+                          <div className="flex justify-between">
+                            <span className="text-gray-600">Monthly needed:</span>
+                            <span className="font-medium">
+                              ${Math.ceil(remaining / (daysLeft / 30)).toLocaleString()}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          )}
+
+          {/* Monthly Summary Tab */}
+          {activeTab === 'summary' && (
+            <div className="space-y-6">
+              <div className="bg-white p-6 rounded-xl shadow-sm border">
+                <h3 className="text-lg font-semibold mb-4">Monthly Income vs Expenses</h3>
+                <ResponsiveContainer width="100%" height={400}>
+                  <BarChart data={monthlyData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="month" />
+                    <YAxis />
+                    <Tooltip formatter={(value) => [`$${value}`, '']} />
+                    <Bar dataKey="income" fill="#10b981" name="Income" />
+                    <Bar dataKey="expenses" fill="#ef4444" name="Expenses" />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="bg-white p-4 rounded-lg shadow-sm border">
+                  <p className="text-sm text-gray-600">Average Monthly Income</p>
+                  <p className="text-xl font-bold text-green-600">
+                    ${transactions.length > 0 ? (monthlyData.reduce((sum, month) => sum + month.income, 0) / monthlyData.length).toLocaleString() : '0'}
+                  </p>
+                </div>
+                <div className="bg-white p-4 rounded-lg shadow-sm border">
+                  <p className="text-sm text-gray-600">Average Monthly Expenses</p>
+                  <p className="text-xl font-bold text-red-600">
+                    ${transactions.length > 0 ? (monthlyData.reduce((sum, month) => sum + month.expenses, 0) / monthlyData.length).toLocaleString() : '0'}
+                  </p>
+                </div>
+                <div className="bg-white p-4 rounded-lg shadow-sm border">
+                  <p className="text-sm text-gray-600">Best Month</p>
+                  <p className="text-xl font-bold text-blue-600">
+                    {transactions.length > 0 ? monthlyData.reduce((best, month) => 
+                      (month.income - month.expenses) > (best.income - best.expenses) ? month : best
+                    ).month : 'N/A'}
+                  </p>
+                </div>
+                <div className="bg-white p-4 rounded-lg shadow-sm border">
+                  <p className="text-sm text-gray-600">Savings Rate</p>
+                  <p className="text-xl font-bold text-purple-600">
+                    {totalIncome > 0 ? ((netAmount / totalIncome) * 100).toFixed(1) : '0'}%
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  // Main render logic
+  if (currentPage === 'landing') return <LandingPage />;
+  if (currentPage === 'register') return <RegisterPage />;
+  if (currentPage === 'login') return <LoginPage />;
+  if (currentPage === 'expense-tracker' && currentUser) return <ExpenseTracker />;
+
+  return <LandingPage />;
+};
+
+export default ExpenseTrackerApp;
